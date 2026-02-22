@@ -1,39 +1,27 @@
-const express = require("express");
-const cors = require("cors");
-const morgan = require("morgan");
+import express from "express";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import cors from "cors";
+import morgan from "morgan";
 
-const config = require("./config/config");
-const connectDB = require("./config/db");
-const errorHandler = require("./middlewares/error");
-
-const usersRouter = require("./routes/users");
-const cardsRouter = require("./routes/cards");
+dotenv.config();
 
 const app = express();
 
-// JSON body parsing
-app.use(express.json());
-
-// CORS
 app.use(cors());
-
-// Logger with morgan :contentReference[oaicite:22]{index=22}
+app.use(express.json());
 app.use(morgan("dev"));
 
-app.get("/", (req, res) => res.json({ ok: true, message: "API is running" }));
+app.get("/", (req, res) => {
+  res.send("Server is running 🚀");
+});
 
-app.use("/users", usersRouter);
-app.use("/cards", cardsRouter);
+const PORT = process.env.PORT || 8181;
 
-app.use(errorHandler);
-
-connectDB()
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => {
-    app.listen(config.port, () => {
-      console.log(`Server running: http://localhost:${config.port}`);
-    });
+    console.log("✅ MongoDB Atlas connected");
+    app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
   })
-  .catch((e) => {
-    console.error("MongoDB connection failed:", e.message);
-    process.exit(1);
-  });
+  .catch((err) => console.error("❌ MongoDB connection error:", err.message));
