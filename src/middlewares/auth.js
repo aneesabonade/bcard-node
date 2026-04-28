@@ -1,31 +1,61 @@
-const jwt = require("jsonwebtoken");
-const config = require("../config/config");
+import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
-function auth(req, res, next) {
-  const header = req.headers.authorization || "";
-  const [type, token] = header.split(" ");
-
-  if (type !== "Bearer" || !token) {
-    return res.status(401).json({ message: "Missing token" });
-  }
-
+export const auth = async (req, res, next) => {
   try {
-    const payload = jwt.verify(token, config.jwtSecret);
-    req.user = payload; // must include: _id, isBusiness, isAdmin :contentReference[oaicite:5]{index=5}
-    return next();
-  } catch {
-    return res.status(401).json({ message: "Invalid token" });
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "No token provided",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    const user = await User.findById(decoded._id || decoded.id).select(
+      "-password"
+    );
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    req.user = user;
+
+    next();
+  } catch (error) {
+    res.status(401).json({
+      success: false,
+      message: "Invalid token",
+    });
   }
-}
+};
 
-function requireAdmin(req, res, next) {
-  if (!req.user?.isAdmin) return res.status(403).json({ message: "Admin only" });
+export const adminOnly = (req, res, next) => {
+  if (!req.user || !req.user.isAdmin) {
+    return res.status(403).json({
+      success: false,
+      message: "Admin access only",
+    });
+  }
+
   next();
-}
+};
 
-function requireBusiness(req, res, next) {
-  if (!req.user?.isBusiness) return res.status(403).json({ message: "Business only" });
+export const businessOnly = (req, res, next) => {
+  if (!req.user || (!req.user.isBusiness && !req.user.isAdmin)) {
+    return res.status(403).json({
+      success: false,
+      message: "Business user access only",
+    });
+  }
+
   next();
-}
-
-module.exports = { auth, requireAdmin, requireBusiness };
+};
